@@ -389,7 +389,6 @@ def read_element_data(lines):
 
 def find_elements(elements_data, left_wavelength, right_wavelength, loggf_threshold):
     filtered_elements = []
-    print(elements_data, left_wavelength, right_wavelength, loggf_threshold)
     for element_data in elements_data:
         wavelength, element_name, loggf = element_data
         if left_wavelength <= wavelength <= right_wavelength and loggf >= loggf_threshold:
@@ -422,9 +421,6 @@ line_list_path_trimmed = os.path.join(f"{temp_directory}", "linelist_for_fitting
 line_list_path_trimmed = os.path.join(line_list_path_trimmed, "all", today, '')
 
 create_window_linelist([lmin - 4], [lmax + 4], turbospectrum_paths["line_list_path"], line_list_path_trimmed, include_molecules, False, do_hydrogen=False)
-# create_window_linelist([lmin - 2], [lmax + 2], m3dis_paths["line_list_path"], line_list_path_trimmed, False, False, do_hydrogen=False)
-# if m3dis, then combine all linelists into one
-# go into line_list_path_trimmed and each folder and combine all linelists into one in each of the folders
 return_parsed_linelist = True
 parsed_linelist_data = combine_linelists(line_list_path_trimmed, return_parsed_linelist=return_parsed_linelist)
 parsed_elements_sorted_info = None
