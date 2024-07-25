@@ -438,7 +438,7 @@ if __name__ == "__main__":
             parsed_model_atom_data.extend(parsed_linelist_data[i].split("\n"))
         left_wavelength = lmin  # change this to change the range of wavelengths to print
         right_wavelength = lmax
-        loggf_threshold = -2          # change this to change the threshold for loggf
+        loggf_threshold = 1          # change this to change the threshold for loggf
         elements_data = read_element_data(parsed_model_atom_data)
         parsed_elements_sorted_info = find_elements(elements_data, left_wavelength, right_wavelength, loggf_threshold)
 
@@ -446,13 +446,40 @@ if __name__ == "__main__":
 
     import matplotlib.pyplot as plt
     import scienceplots
-
     
-    with plt.style.context('science'):
-        plt.figure()
-        plt.plot(synth_data[:, 0], synth_data[:, 1], color="black")
-        for line in parsed_elements_sorted_info:
-            wl, element, log_gf = line
-            plt.axvline(x=wl, color='gray', linestyle='--')
-            plt.text(wl, 1 * 0.5, f'{element} (log gf={log_gf})', rotation=90, verticalalignment='bottom', color='black')
-        plt.show()
+    # with plt.style.context('science'):
+    #     plt.figure()
+    #     plt.plot(synth_data[:, 0], synth_data[:, 1], color="black")
+    #     for line in parsed_elements_sorted_info:
+    #         wl, element, log_gf = line
+    #         plt.axvline(x=wl, color='gray', linestyle='--')
+    #         plt.text(wl, 1 * 0.5, f'{element} (log gf={log_gf})', rotation=90, verticalalignment='bottom', color='black')
+    #     plt.show()
+
+
+    # import plotly.express as px
+
+    # fig = px.line(x=synth_data[:, 0][::10], y=synth_data[:, 1][::10], title='Spectrum')
+    # fig.show()
+    import plotly.graph_objects as go
+    
+    fig = go.Figure()
+
+    wavelengths = synth_data[:, 0][::10]
+    intensities = synth_data[:, 1][::10]
+
+    fig.add_trace(go.Scatter(x=wavelengths, y=intensities, mode='lines', name='Spectrum'))
+
+    for line in parsed_elements_sorted_info:
+        wl, element, log_gf = line
+        fig.add_trace(go.Scatter(x=[wl, wl], y=[0, max(intensities)], mode='lines', 
+                                line=dict(color='red', dash='dash'), name=f'{element} (log gf={log_gf})'))
+        fig.add_annotation(x=wl, y=max(intensities) * 0.9, text=f'{element} (log gf={log_gf})',
+                        showarrow=False, yshift=10, textangle=-90, font=dict(color='red'))
+
+    # Настройка осей и заголовка
+    fig.update_layout(title='Спектральные линии химических элементов',
+                    xaxis_title='Длина волны (нм)',
+                    yaxis_title='Интенсивность')
+
+    fig.show()
