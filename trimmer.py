@@ -7,6 +7,8 @@ import datetime
 import numpy as np
 import logging
 import shutil
+from file_processor import synt_grab, obs_grab
+
 
 def create_window_linelist(seg_begins: np.ndarray[float], seg_ends: np.ndarray[float], old_path_name: str,
                            new_path_name: str, molecules_flag: bool, lbl=False, do_hydrogen=True):
@@ -403,35 +405,54 @@ def find_elements(elements_data, left_wavelength, right_wavelength, loggf_thresh
     #    print(element_name.replace("'", "").replace("NLTE", "").replace("LTE", ""), atomic_num, wavelength, loggf)
 
 
-turbospectrum_paths = {"turbospec_path": "../turbospectrum/exec/",  # change to /exec-gf/ if gnu compiler
-                       "interpol_path": "../scripts/model_interpolators/",
-                       "model_atom_path": "../input_files/nlte_data/model_atoms/",
-                       "departure_file_path": "../input_files/nlte_data/",
-                       "model_atmosphere_grid_path": "../input_files/model_atmospheres/",
-                       "line_list_path": "/home/alpha/TSFitPy/input_files/linelists/linelist_for_fitting"}
+if __name__ == "__main__":
 
-lmin = 5000
-lmax = 5200
-include_molecules = False
+    turbospectrum_paths = {"turbospec_path": "../turbospectrum/exec/",  # change to /exec-gf/ if gnu compiler
+                        "interpol_path": "../scripts/model_interpolators/",
+                        "model_atom_path": "../input_files/nlte_data/model_atoms/",
+                        "departure_file_path": "../input_files/nlte_data/",
+                        "model_atmosphere_grid_path": "../input_files/model_atmospheres/",
+                        "line_list_path": "/home/alpha/TSFitPy/input_files/linelists/linelist_for_fitting"}
 
-today = datetime.datetime.now().strftime("%b-%d-%Y-%H-%M-%S")  # used to not conflict with other instances of fits
-today = f"{today}_{np.random.random(1)[0]}"
-temp_directory = f"../temp_directory/temp_directory_{datetime.datetime.now().strftime('%b-%d-%Y-%H-%M-%S')}__{np.random.random(1)[0]}/"
-line_list_path_trimmed = os.path.join(f"{temp_directory}", "linelist_for_fitting_trimmed", "")
-line_list_path_trimmed = os.path.join(line_list_path_trimmed, "all", today, '')
 
-create_window_linelist([lmin - 4], [lmax + 4], turbospectrum_paths["line_list_path"], line_list_path_trimmed, include_molecules, False, do_hydrogen=False)
-return_parsed_linelist = True
-parsed_linelist_data = combine_linelists(line_list_path_trimmed, return_parsed_linelist=return_parsed_linelist)
-parsed_elements_sorted_info = None
-if return_parsed_linelist:
-    parsed_model_atom_data = []
-    for i in range(len(parsed_linelist_data)):
-        parsed_model_atom_data.extend(parsed_linelist_data[i].split("\n"))
-    left_wavelength = lmin  # change this to change the range of wavelengths to print
-    right_wavelength = lmax
-    loggf_threshold = -3           # change this to change the threshold for loggf
-    elements_data = read_element_data(parsed_model_atom_data)
-    parsed_elements_sorted_info = find_elements(elements_data, left_wavelength, right_wavelength, loggf_threshold)
+#    obs_data = obs_grab("20.tab.norm")
+    synth_data = synt_grab("0.spec")
 
-print(parsed_elements_sorted_info)
+    lmin = synth_data[:, 0][0]
+    lmax = synth_data[:, 0][-1]
+    include_molecules = True
+
+    today = datetime.datetime.now().strftime("%b-%d-%Y-%H-%M-%S")  # used to not conflict with other instances of fits
+    today = f"{today}_{np.random.random(1)[0]}"
+    temp_directory = f"../temp_directory/temp_directory_{datetime.datetime.now().strftime('%b-%d-%Y-%H-%M-%S')}__{np.random.random(1)[0]}/"
+    line_list_path_trimmed = os.path.join(f"{temp_directory}", "linelist_for_fitting_trimmed", "")
+    line_list_path_trimmed = os.path.join(line_list_path_trimmed, "all", today, '')
+
+    create_window_linelist([lmin - 4], [lmax + 4], turbospectrum_paths["line_list_path"], line_list_path_trimmed, include_molecules, False, do_hydrogen=False)
+    return_parsed_linelist = True
+    parsed_linelist_data = combine_linelists(line_list_path_trimmed, return_parsed_linelist=return_parsed_linelist)
+    parsed_elements_sorted_info = None
+    if return_parsed_linelist:
+        parsed_model_atom_data = []
+        for i in range(len(parsed_linelist_data)):
+            parsed_model_atom_data.extend(parsed_linelist_data[i].split("\n"))
+        left_wavelength = lmin  # change this to change the range of wavelengths to print
+        right_wavelength = lmax
+        loggf_threshold = -2          # change this to change the threshold for loggf
+        elements_data = read_element_data(parsed_model_atom_data)
+        parsed_elements_sorted_info = find_elements(elements_data, left_wavelength, right_wavelength, loggf_threshold)
+
+    print(parsed_elements_sorted_info)
+
+    import matplotlib.pyplot as plt
+    import scienceplots
+
+    
+    with plt.style.context('science'):
+        plt.figure()
+        plt.plot(synth_data[:, 0], synth_data[:, 1], color="black")
+        for line in parsed_elements_sorted_info:
+            wl, element, log_gf = line
+            plt.axvline(x=wl, color='gray', linestyle='--')
+            plt.text(wl, 1 * 0.5, f'{element} (log gf={log_gf})', rotation=90, verticalalignment='bottom', color='black')
+        plt.show()
