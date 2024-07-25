@@ -7,6 +7,7 @@ import datetime
 import numpy as np
 import logging
 import shutil
+import re
 from file_processor import synt_grab, obs_grab
 
 
@@ -272,7 +273,6 @@ def binary_find_left_segment_index(array_to_search: list[str], dict_array_values
             return mid + low
     return left + low
 
-
 def binary_find_right_segment_index(array_to_search: list[str], dict_array_values: dict, low: int, high: int,
                                     offset_array: int, element_to_search: float):
     """ For example, given array [12, 20, 32, 40, 52]
@@ -310,7 +310,6 @@ def binary_find_right_segment_index(array_to_search: list[str], dict_array_value
         else:
             right = mid
     return left + low - 1
-
 
 def write_lines(indices_to_write: dict, lines_file: list[str], elem_line_1_to_save: str, elem_line_2_to_save: str,
                 new_path_name: str, line_list_number: float):
@@ -397,12 +396,24 @@ def find_elements(elements_data, left_wavelength, right_wavelength, loggf_thresh
             filtered_elements.append(element_data)
 
     sorted_elements = sorted(filtered_elements, key=lambda x: x[0])  # Sort by wavelength
-
+    sorted_elements = [list(sorted_elements[i]) for i in range(len(sorted_elements))]
     return sorted_elements
 
     #for element_data in sorted_elements:
     #    element_name, atomic_num, ionization, wavelength, loggf = element_data
     #    print(element_name.replace("'", "").replace("NLTE", "").replace("LTE", ""), atomic_num, wavelength, loggf)
+
+
+def find_element(elements_data, element_name):
+    # ["wavelenght", "element name like 'FeI'", "log gf"]
+    element_data = []
+    for i in range(len(elements_data)):
+        elements_data[i][1] = output_string = re.sub(r'\s+', ' ', elements_data[i][1].strip())
+        print(elements_data[i][1])
+        if elements_data[i][1] == element_name:
+            element_data.append(elements_data[i])
+
+    return element_data
 
 
 if __name__ == "__main__":
@@ -438,48 +449,59 @@ if __name__ == "__main__":
             parsed_model_atom_data.extend(parsed_linelist_data[i].split("\n"))
         left_wavelength = lmin  # change this to change the range of wavelengths to print
         right_wavelength = lmax
-        loggf_threshold = 1          # change this to change the threshold for loggf
+        loggf_threshold = -1          # change this to change the threshold for loggf
         elements_data = read_element_data(parsed_model_atom_data)
         parsed_elements_sorted_info = find_elements(elements_data, left_wavelength, right_wavelength, loggf_threshold)
 
     print(parsed_elements_sorted_info)
+    Fe1_list = find_element(parsed_elements_sorted_info, "Fe II")
+    print(Fe1_list)
 
-    import matplotlib.pyplot as plt
-    import scienceplots
+
+
+    save_graph = False
+    show_graph = False
+
+    if save_graph:
+        import matplotlib.pyplot as plt
+        import scienceplots
+        
+        with plt.style.context('science'):
+            plt.figure()
+            plt.plot(synth_data[:, 0], synth_data[:, 1], color="black")
+            for line in parsed_elements_sorted_info:
+                wl, element, log_gf = line
+                plt.axvline(x=wl, color='gray', linestyle='--')
+                plt.text(wl, 1 * 0.5, f'{element} (log gf={log_gf})', rotation=90, verticalalignment='bottom', color='black')
+            plt.show()
+
+
+        import plotly.express as px
+
+        fig = px.line(x=synth_data[:, 0][::10], y=synth_data[:, 1][::10], title='Spectrum')
+        fig.show()
     
-    # with plt.style.context('science'):
-    #     plt.figure()
-    #     plt.plot(synth_data[:, 0], synth_data[:, 1], color="black")
-    #     for line in parsed_elements_sorted_info:
-    #         wl, element, log_gf = line
-    #         plt.axvline(x=wl, color='gray', linestyle='--')
-    #         plt.text(wl, 1 * 0.5, f'{element} (log gf={log_gf})', rotation=90, verticalalignment='bottom', color='black')
-    #     plt.show()
 
+    if show_graph:
+        import plotly.graph_objects as go
+        
+        fig = go.Figure()
 
-    # import plotly.express as px
+        wavelengths = synth_data[:, 0][::10]
+        intensities = synth_data[:, 1][::10]
 
-    # fig = px.line(x=synth_data[:, 0][::10], y=synth_data[:, 1][::10], title='Spectrum')
-    # fig.show()
-    import plotly.graph_objects as go
-    
-    fig = go.Figure()
+        fig.add_trace(go.Scatter(x=wavelengths, y=intensities, mode='lines', name='Spectrum'))
 
-    wavelengths = synth_data[:, 0][::10]
-    intensities = synth_data[:, 1][::10]
+        for line in parsed_elements_sorted_info:
+            wl, element, log_gf = line
+            fig.add_trace(go.Scatter(x=[wl, wl], y=[min(intensities), 1.05], mode='lines', 
+                                    line=dict(color='black', dash='dash'), name=f'{element} (log gf={log_gf})'))
+            fig.add_annotation(x=wl, y=max(intensities) * 1.05, text=f'{element} (log gf={log_gf})',
+                            showarrow=True, xshift=0, yshift=0, textangle=-90, font=dict(color='black'))
 
-    fig.add_trace(go.Scatter(x=wavelengths, y=intensities, mode='lines', name='Spectrum'))
+        # Настройка осей и заголовка
+        fig.update_layout(title='Спектральные линии химических элементов',
+                        xaxis_title='Длина волны (нм)',
+                        yaxis_title='Интенсивность')
 
-    for line in parsed_elements_sorted_info:
-        wl, element, log_gf = line
-        fig.add_trace(go.Scatter(x=[wl, wl], y=[0, max(intensities)], mode='lines', 
-                                line=dict(color='red', dash='dash'), name=f'{element} (log gf={log_gf})'))
-        fig.add_annotation(x=wl, y=max(intensities) * 0.9, text=f'{element} (log gf={log_gf})',
-                        showarrow=False, yshift=10, textangle=-90, font=dict(color='red'))
-
-    # Настройка осей и заголовка
-    fig.update_layout(title='Спектральные линии химических элементов',
-                    xaxis_title='Длина волны (нм)',
-                    yaxis_title='Интенсивность')
-
-    fig.show()
+        fig.show()
